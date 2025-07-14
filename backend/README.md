@@ -72,6 +72,10 @@ A comprehensive FastAPI backend for an AI-powered promotional product mockup pla
    chmod +x scripts/setup.sh
    ./scripts/setup.sh
    ```
+   apt install python3
+   python3 -m venv venv
+   source venv/bin/activate
+   pip intall -r requiremets.txt
 
 3. **Configure environment**
    ```bash
