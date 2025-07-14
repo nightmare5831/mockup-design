@@ -1,7 +1,6 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from typing import ClassVar, Dict, Any, List, Optional
-import os
 
 
 class Settings(BaseSettings):
@@ -43,12 +42,12 @@ class Settings(BaseSettings):
     AWS_EC2_INSTANCE_ID: str = Field(default="", env="AWS_EC2_INSTANCE_ID")
     PIAPI_API_KEY: Optional[str] = Field(default=None, env="PIAPI_API_KEY")
     
-    # Email
-    SMTP_HOST: str = Field(default="smtp.gmail.com", env="SMTP_HOST")
-    SMTP_PORT: int = Field(default=587, env="SMTP_PORT")
-    SMTP_USERNAME: str = Field(env="SMTP_USERNAME")
-    SMTP_PASSWORD: str = Field(env="SMTP_PASSWORD")
-    FROM_EMAIL: str = Field(env="FROM_EMAIL")
+    # Email (nodemailer-style configuration with Gmail)
+    EMAIL_ADDRESS: Optional[str] = Field(default=None, env="EMAIL_ADDRESS")
+    EMAIL_PASSWORD: Optional[str] = Field(default=None, env="EMAIL_PASSWORD")
+    
+    # Frontend URL for reset links
+    FRONTEND_URL: str = Field(default="http://localhost:3000", env="FRONTEND_URL")
     
     # CORS
     ALLOWED_ORIGINS: List[str] = Field(
@@ -109,6 +108,7 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        extra = "ignore"  # Allow extra env vars for backward compatibility
         
         @classmethod
         def parse_env_var(cls, field_name: str, raw_val: str):

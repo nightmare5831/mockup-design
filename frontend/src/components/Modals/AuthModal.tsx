@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
 import { setShowAuthModal } from '@/store/slices/uiSlice';
 import { loginUser, registerUser, verifyToken } from '@/store/slices/userSlice';
+import { legacyAuthApi } from '@/service/api';
 import { Sparkles } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
@@ -121,11 +122,66 @@ const AuthModal = () => {
 const LoginForm = ({ onSubmit, isLoading }: { onSubmit: (email: string, password: string) => void; isLoading: boolean }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotLoading, setForgotLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSubmit(email, password);
   };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotLoading(true);
+    
+    try {
+      await legacyAuthApi.forgotPassword(forgotEmail);
+      toast({
+        title: "Email Sent",
+        description: "If the email exists, a password reset link has been sent.",
+      });
+      setShowForgotPassword(false);
+      setForgotEmail('');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send password reset email",
+        variant: "destructive",
+      });
+    } finally {
+      setForgotLoading(false);
+    }
+  };
+
+  if (showForgotPassword) {
+    return (
+      <form onSubmit={handleForgotPassword} className="space-y-4">
+        <div>
+          <Label htmlFor="forgot-email">Email</Label>
+          <Input
+            id="forgot-email"
+            type="email"
+            value={forgotEmail}
+            onChange={(e) => setForgotEmail(e.target.value)}
+            placeholder="Enter your email address"
+            required
+          />
+        </div>
+        <Button type="submit" className="w-full bg-gradient-primary" disabled={forgotLoading}>
+          {forgotLoading ? 'Sending...' : 'Send Reset Link'}
+        </Button>
+        <Button 
+          type="button" 
+          variant="ghost" 
+          className="w-full" 
+          onClick={() => setShowForgotPassword(false)}
+        >
+          Back to Login
+        </Button>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -151,6 +207,14 @@ const LoginForm = ({ onSubmit, isLoading }: { onSubmit: (email: string, password
       </div>
       <Button type="submit" className="w-full bg-gradient-primary" disabled={isLoading}>
         {isLoading ? 'Signing in...' : 'Sign In'}
+      </Button>
+      <Button 
+        type="button" 
+        variant="ghost" 
+        className="w-full text-sm" 
+        onClick={() => setShowForgotPassword(true)}
+      >
+        Forgot your password?
       </Button>
     </form>
   );

@@ -3,6 +3,7 @@ from typing import Optional, Union
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 from fastapi import HTTPException, status
+import secrets
 from app.config.settings import settings
 
 # Password hashing
@@ -91,3 +92,30 @@ def create_token_pair(user_id: str, email: str) -> dict:
         "refresh_token": refresh_token,
         "token_type": "bearer"
     }
+
+
+def create_password_reset_token(user_id: str, email: str) -> str:
+    """Create password reset token with 5 minute expiry"""
+    to_encode = {
+        "sub": user_id, 
+        "email": email, 
+        "type": "password_reset",
+        "exp": datetime.utcnow() + timedelta(minutes=5)
+    }
+    encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def verify_password_reset_token(token: str) -> Optional[dict]:
+    """Verify password reset token"""
+    try:
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[ALGORITHM])
+        
+        # Check token type
+        if payload.get("type") != "password_reset":
+            return None
+            
+        # Check expiration (JWT handles this automatically)
+        return payload
+    except JWTError:
+        return None

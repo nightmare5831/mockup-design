@@ -35,12 +35,17 @@ export const legacyAuthApi = {
       body: JSON.stringify({ email })
     }).then(res => res.json());
   },
-  resetPassword: (token: string, password: string) => {
-    // This endpoint might not be available in the new API, keeping for compatibility
+  resetPassword: (token: string, new_password: string) => {
     return fetch(`${API_BASE_URL}/auth/reset-password`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token, password })
+      body: JSON.stringify({ token, new_password })
+    }).then(res => res.json());
+  },
+  verifyResetToken: (token: string) => {
+    return fetch(`${API_BASE_URL}/auth/verify-reset-token/${token}`, {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' }
     }).then(res => res.json());
   },
   verifyToken: () =>
