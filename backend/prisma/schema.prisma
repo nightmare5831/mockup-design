@@ -1,0 +1,186 @@
+generator client {
+  provider                    = "prisma-client-py"
+  recursive_type_depth        = "5"
+  enable_experimental_decimal = "true"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password_hash String
+  first_name    String?
+  last_name     String?
+  role          UserRole       @default(REGISTERED)
+  is_active     Boolean        @default(true)
+  created_at    DateTime       @default(now())
+  updated_at    DateTime       @updatedAt
+  last_login    DateTime?
+  credits       Credit[]
+  mockups       Mockup[]
+  payments      Payment[]
+  subscriptions Subscription[]
+
+  @@map("users")
+}
+
+model Credit {
+  id         String    @id @default(cuid())
+  user_id    String
+  amount     Int
+  used       Int       @default(0)
+  expires_at DateTime?
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  user       User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  mockups    Mockup[]
+
+  @@map("credits")
+}
+
+model Subscription {
+  id                   String             @id @default(cuid())
+  user_id              String
+  plan                 SubscriptionPlan
+  status               SubscriptionStatus @default(ACTIVE)
+  stripe_id            String?            @unique
+  current_period_start DateTime
+  current_period_end   DateTime
+  created_at           DateTime           @default(now())
+  updated_at           DateTime           @updatedAt
+  payments             Payment[]
+  user                 User               @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+model Payment {
+  id                       String        @id @default(cuid())
+  user_id                  String
+  subscription_id          String?
+  amount                   Decimal       @db.Decimal(10, 2)
+  currency                 String        @default("EUR")
+  status                   PaymentStatus @default(PENDING)
+  stripe_payment_intent_id String?       @unique
+  payment_method           String?
+  created_at               DateTime      @default(now())
+  updated_at               DateTime      @updatedAt
+  subscription             Subscription? @relation(fields: [subscription_id], references: [id])
+  user                     User          @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("payments")
+}
+
+model Product {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  category    String
+  image_url   String
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+  mockups     Mockup[]
+
+  @@map("products")
+}
+
+model Mockup {
+  id                String           @id @default(cuid())
+  user_id           String
+  product_id        String?
+  credit_id         String?
+  name              String?
+  status            MockupStatus     @default(PENDING)
+  marking_technique MarkingTechnique
+  product_image_url String?
+  logo_image_url    String?
+  result_image_url  String?
+  marking_zone_x    Float
+  marking_zone_y    Float
+  marking_zone_w    Float
+  marking_zone_h    Float
+  logo_scale        Float            @default(1.0)
+  logo_rotation     Float            @default(0.0)
+  logo_color        String?
+  processing_time   Int?
+  error_message     String?
+  created_at        DateTime         @default(now())
+  updated_at        DateTime         @updatedAt
+  credit            Credit?          @relation(fields: [credit_id], references: [id])
+  product           Product?         @relation(fields: [product_id], references: [id])
+  user              User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("mockups")
+}
+
+model SystemConfig {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  value      String
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  @@map("system_config")
+}
+
+enum UserRole {
+  VISITOR
+  REGISTERED
+  SUBSCRIBED
+  ADMIN
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  INACTIVE
+  CANCELLED
+  EXPIRED
+}
+
+enum SubscriptionPlan {
+  BASIC
+  PRO
+  PREMIUM
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum MockupStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum MarkingTechnique {
+  SERIGRAFIA
+  TRANSFER_DIGITAL
+  VINILO_TEXTIL
+  TRANSFER_SERIGRAFICO
+  BORDADO
+  IMPRESION_DIGITAL
+  DOMING
+  TAMPOGRAFIA
+  GRABADO_LASER
+  SUBLIMACION
+  TERMOGRABADO
+  ETIQUETA_DIGITAL
+  VINILO_ADHESIVO
+  TRANSFER_CERAMICO
+  MOLDE_3D
+  GRABADO_FUEGO
+  GRABADO_UV
+  GRABADO_RELIEVE
+  SERIGRAFIA_CIRCULAR
+}

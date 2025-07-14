@@ -1,0 +1,3 @@
+[tool.prisma]
+schema = "prisma/schema.prisma"
+binary_cache_dir = "prisma_binaries"
