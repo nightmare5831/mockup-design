@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # Main FastAPI application
+  api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - DEBUG=True
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/ai_mockup_platform
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../app:/app/app
+      - ../prisma:/app/prisma
+    depends_on:
+      - db
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Celery worker for background tasks
+  worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      - DEBUG=True
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/ai_mockup_platform
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../app:/app/app
+    depends_on:
+      - db
+      - redis
+    command: celery -A app.workers.celery_app worker --loglevel=info
+
+  # Celery Beat for scheduled tasks
+  beat:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    environment:
+      - DEBUG=True
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:password@db:5432/ai_mockup_platform
+      - REDIS_URL=redis://redis:6379/0
+    volumes:
+      - ../app:/app/app
+    depends_on:
+      - db
+      - redis
+    command: celery -A app.workers.celery_app beat --loglevel=info
+
+  # PostgreSQL database (for local development)
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=ai_mockup_platform
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Flower for monitoring Celery
+  flower:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+    command: celery -A app.workers.celery_app flower --port=5555
+
+volumes:
+  postgres_data:
+  redis_data:

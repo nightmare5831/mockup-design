@@ -1,0 +1,51 @@
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
+# Set work directory
+WORKDIR /app
+
+# Install system dependencies including OpenCV requirements
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        libpq-dev \
+        curl \
+        git \
+        libgl1-mesa-glx \
+        libglib2.0-0 \
+        libsm6 \
+        libxext6 \
+        libxrender-dev \
+        libgomp1 \
+        libgthread-2.0-0 \
+        libmagic1 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+# Install additional packages for workers
+RUN pip install --no-cache-dir \
+    celery[redis]==5.3.4 \
+    flower==2.0.1 \
+    html2text==2020.1.16
+
+# Copy project files
+COPY . .
+
+# Generate Prisma client
+RUN prisma generate
+
+# Create non-root user
+RUN adduser --disabled-password --gecos '' celeryuser \
+    && chown -R celeryuser:celeryuser /app
+USER celeryuser
+
+# Default command (can be overridden)
+CMD ["celery", "-A", "app.workers.celery_app", "worker", "--loglevel=info"]
