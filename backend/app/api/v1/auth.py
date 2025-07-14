@@ -5,12 +5,16 @@ from prisma.models import User
 from app.config.database import get_db
 from app.config.settings import settings
 import logging
+
+logger = logging.getLogger(__name__)
+
 from app.core.auth import (
     verify_password, 
     get_password_hash, 
     create_token_pair,
     verify_token,
-    create_reset_token
+    create_password_reset_token,
+    verify_password_reset_token
 )
 from app.core.exceptions import (
     AuthenticationError, 
@@ -71,6 +75,16 @@ async def register(
             "used": 0
         }
     )
+    
+    # Send welcome email
+    try:
+        from app.services.email_service import EmailService
+        email_service = EmailService()
+        user_name = f"{user_data.first_name or ''} {user_data.last_name or ''}".strip() or user.email
+        await email_service.send_welcome_email(user.email, user_name)
+        logger.info(f"Welcome email sent to {user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send welcome email to {user.email}: {e}")
     
     return RegisterResponse(
         message="User registered successfully",
@@ -180,20 +194,25 @@ async def forgot_password(
     # Always return success for security reasons
     # (don't reveal whether email exists)
     if user:
-        # Generate reset token
-        reset_token = create_reset_token(user.id, user.email)
+        # Generate JWT-based reset token (no database storage needed)
+        reset_token = create_password_reset_token(user.id, user.email)
         
-        # TODO: Send email with reset token (email service disabled for now)
-        # For now, just log the reset token
-        logger.info(f"Password reset token for {user.email}: {reset_token}")
-        logger.info(f"Reset URL: {settings.FRONTEND_URL}/reset-password?token={reset_token}")
-        
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Password reset requested for {request.email}")
+        # Send password reset email
+        try:
+            from app.services.email_service import EmailService
+            email_service = EmailService()
+            await email_service.send_password_reset_email(user.email, reset_token)
+            logger.info(f"Password reset email sent to {user.email}")
+        except Exception as e:
+            # Log error but don't reveal it to user for security
+            logger.error(f"Failed to send password reset email to {user.email}: {e}")
+            # For development, also log the reset token
+            if settings.DEBUG:
+                logger.info(f"Password reset token for {user.email}: {reset_token}")
+                logger.info(f"Reset URL: {settings.FRONTEND_URL}/reset-password/{reset_token}")
     
     return ForgotPasswordResponse(
-        message="If the email exists, a password reset link has been sent"
+        message="Password reset email sent."
     )
 
 
@@ -203,20 +222,22 @@ async def reset_password(
     db = Depends(get_db)
 ):
     """Reset user password using reset token"""
-    # Verify reset token
-    payload = verify_token(request.token, "reset")
+    # Verify JWT-based reset token
+    payload = verify_password_reset_token(request.token)
     
-    if payload is None:
-        raise AuthenticationError("Invalid or expired reset token")
+    if not payload:
+        raise AuthenticationError("Password reset token is invalid or has expired.")
     
     user_id = payload.get("sub")
-    if user_id is None:
+    user_email = payload.get("email")
+    
+    if not user_id or not user_email:
         raise AuthenticationError("Invalid token payload")
     
     # Find user
     user = await db.user.find_unique(where={"id": user_id})
-    if not user:
-        raise NotFoundError("User not found")
+    if not user or user.email != user_email:
+        raise AuthenticationError("User not found or email mismatch")
     
     # Update password
     hashed_password = get_password_hash(request.new_password)
@@ -225,8 +246,17 @@ async def reset_password(
         data={"password_hash": hashed_password}
     )
     
+    # Send confirmation email
+    try:
+        from app.services.email_service import EmailService
+        email_service = EmailService()
+        await email_service.send_password_reset_confirmation(user.email)
+        logger.info(f"Password reset confirmation email sent to {user.email}")
+    except Exception as e:
+        logger.error(f"Failed to send password reset confirmation email to {user.email}: {e}")
+    
     return ResetPasswordResponse(
-        message="Password has been reset successfully"
+        message="Password has been reset."
     )
 
 
@@ -243,6 +273,17 @@ async def verify(
 ):
     """Get current user verify"""
     return UserResponse.from_orm(current_user)
+
+
+@router.get("/auth/verify-reset-token/{token}")
+async def verify_reset_token(token: str):
+    """Verify if reset token is valid"""
+    payload = verify_password_reset_token(token)
+    
+    if not payload:
+        raise AuthenticationError("Password reset token is invalid or has expired.")
+    
+    return {"message": "Token is valid."}
 
 
 @router.post("/auth/logout")
