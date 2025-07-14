@@ -25,6 +25,7 @@ model User {
   mockups       Mockup[]
   payments      Payment[]
   subscriptions Subscription[]
+  simulation_history SimulationHistory[]
 
   @@map("users")
 }
@@ -115,8 +116,41 @@ model Mockup {
   credit            Credit?          @relation(fields: [credit_id], references: [id])
   product           Product?         @relation(fields: [product_id], references: [id])
   user              User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  history_entries   SimulationHistory[]
 
   @@map("mockups")
+}
+
+model SimulationHistory {
+  id          String   @id @default(cuid())
+  mockup_id   String
+  user_id     String
+  step_name   String
+  step_data   Json?
+  timestamp   DateTime @default(now())
+  duration_ms Int?
+  success     Boolean  @default(true)
+  error_info  String?
+  metadata    Json?
+  mockup      Mockup   @relation(fields: [mockup_id], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@map("simulation_history")
+}
+
+model Tooltip {
+  id          String       @id @default(cuid())
+  element_id  String       @unique
+  title       String
+  content     String
+  position    TooltipPosition @default(TOP)
+  trigger     TooltipTrigger  @default(HOVER)
+  is_active   Boolean      @default(true)
+  step_order  Int?
+  created_at  DateTime     @default(now())
+  updated_at  DateTime     @updatedAt
+
+  @@map("tooltips")
 }
 
 model SystemConfig {
@@ -183,4 +217,22 @@ enum MarkingTechnique {
   GRABADO_UV
   GRABADO_RELIEVE
   SERIGRAFIA_CIRCULAR
+}
+
+enum TooltipPosition {
+  TOP
+  BOTTOM
+  LEFT
+  RIGHT
+  TOP_LEFT
+  TOP_RIGHT
+  BOTTOM_LEFT
+  BOTTOM_RIGHT
+}
+
+enum TooltipTrigger {
+  HOVER
+  CLICK
+  FOCUS
+  MANUAL
 }

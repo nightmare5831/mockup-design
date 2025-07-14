@@ -18,7 +18,7 @@ except ImportError:
 from app.config.settings import settings
 from app.config.database import init_db
 from app.core.exceptions import CustomException
-from app.api.v1 import auth, users, mockups, products, credits, subscriptions, payments, admin
+from app.api.v1 import auth, users, mockups, products, credits, subscriptions, payments, admin, simulation_history
 from app.middleware.rate_limiting import rate_limit_middleware
 import os
 
@@ -149,6 +149,10 @@ app = FastAPI(
         {
             "name": "Admin", 
             "description": "Administrative endpoints for system management, user management, and platform analytics."
+        },
+        {
+            "name": "Simulation History", 
+            "description": "Simulation history tracking endpoints for monitoring and analyzing mockup generation processes."
         }            
     ],
     contact={
@@ -252,6 +256,7 @@ app.include_router(credits.router, prefix="/api/v1", tags=["Credits"])
 app.include_router(subscriptions.router, prefix="/api/v1", tags=["Subscriptions"])
 app.include_router(payments.router, prefix="/api/v1", tags=["Payments"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
+app.include_router(simulation_history.router, prefix="/api/v1/simulation-history", tags=["Simulation History"])
 
 
 # Root endpoint
