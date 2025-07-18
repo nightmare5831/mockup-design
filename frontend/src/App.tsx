@@ -17,6 +17,7 @@ import AccountSubscription from "./pages/AccountSubscription";
 import Credits from "./pages/Credits";
 import CreditHistory from "./pages/CreditHistory";
 import ResetPassword from "./pages/ResetPassword";
+import UserGuide from "./pages/UserGuide";
 import NotFound from "./pages/NotFound";
 import NotificationDisplay from "./components/Notifications/NotificationDisplay";
 import AuthModal from "./components/Modals/AuthModal";
@@ -46,6 +47,7 @@ const App = () => (
             <Route path="/credits" element={<Credits />} />
             <Route path="/credits/history" element={<CreditHistory />} />
             <Route path="/reset-password/:token" element={<ResetPassword />} />
+            <Route path="/user-guide" element={<UserGuide />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

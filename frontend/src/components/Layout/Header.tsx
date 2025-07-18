@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { setShowAuthModal, setShowPricingModal } from '@/store/slices/uiSlice';
 import { logout, verifyToken } from '@/store/slices/userSlice';
-import { Zap, User, LogOut, Sparkles, FolderOpen, Settings, CreditCard } from 'lucide-react';
+import { Zap, User, LogOut, Sparkles, FolderOpen, Settings, CreditCard, BookOpen } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 
@@ -60,6 +60,10 @@ const Header = () => {
         <nav className="hidden md:flex items-center space-x-6">
           <Button variant="ghost" onClick={()=>navigate('/features')}>Features</Button>
           <Button variant="ghost">Gallery</Button>
+          <Button variant="ghost" onClick={()=>navigate('/user-guide')}>
+            <BookOpen className="h-4 w-4 mr-2" />
+            Guía de Usuario
+          </Button>
           {isAuthenticated && (
             <>
               <Button variant="ghost" onClick={() => navigate('/mockup')}>
