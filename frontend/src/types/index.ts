@@ -250,6 +250,8 @@ export interface Project {
   product_image_url?: string;
   logo_image_url?: string;
   result_image_url?: string;
+  productImage?: string; // Local data URL for product image
+  logoImage?: string; // Local data URL for logo image
   marking_technique: MarkingTechnique;
   marking_zone_x: number;
   marking_zone_y: number;

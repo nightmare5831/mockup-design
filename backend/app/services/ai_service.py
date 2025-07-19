@@ -35,10 +35,19 @@ class AIService:
     async def download_image(self, url: str) -> Image.Image:
         """Download image from URL"""
         try:
-            # Handle relative URLs by converting to absolute URLs
+            # Handle relative URLs by converting to absolute file paths
             if url.startswith('/'):
-                path = "./"+url
-                return Image.open(path).convert('RGB')
+                # Convert relative URL to absolute file path
+                # Remove leading slash and handle uploads prefix
+                if url.startswith('/uploads/'):
+                    path = url[1:]  # Remove leading slash: /uploads/... -> uploads/...
+                else:
+                    path = url[1:]  # Remove leading slash
+                
+                # Convert to absolute path
+                absolute_path = os.path.abspath(path)
+                logger.info(f"Loading local image from: {absolute_path}")
+                return Image.open(absolute_path).convert('RGB')
             else:
                 response = requests.get(url, timeout=30)
                 response.raise_for_status()
@@ -136,26 +145,38 @@ class AIService:
             # Get technique-specific prompt
             technique_prompt = self.get_technique_prompt(technique)
             
+            # Convert relative URLs to absolute URLs
+            product_absolute_url = self.get_absolute_url(product_image_url)
+            logo_absolute_url = self.get_absolute_url(logo_image_url)
+            
+            logger.info(f"Using product image URL: {product_absolute_url}")
+            logger.info(f"Using logo image URL: {logo_absolute_url}")
+            
             # Calculate position and transform values from marking zone and parameters
-            x_pos = int(marking_zone[0])  # Assuming base image size for calculation
-            y_pos = int(marking_zone[1])
+            # marking_zone contains relative values (0-1), convert to percentage for better AI understanding
+            x_pos_percent = int(marking_zone[0] * 100)  # Convert to percentage
+            y_pos_percent = int(marking_zone[1] * 100)  # Convert to percentage
+            width_percent = int(marking_zone[2] * 100)  # Zone width as percentage
+            height_percent = int(marking_zone[3] * 100)  # Zone height as percentage
             scale_percent = int(logo_scale * 100)
             rotation_degrees = int(logo_rotation)
             opacity_percent = 100 if logo_color != 'transparent' else 100
             # Create the prompt for logo overlay
             prompt_text = f"""Overlay the second image (a logo) onto the first image (a product photo) using the following visual guidance:
 
-                • Position the logo approximately {x_pos}px from the left and {y_pos}px from the top of the product image (top-left origin).
+                • Position the logo at approximately {x_pos_percent}% from the left and {y_pos_percent}% from the top of the product image (relative positioning).
 
-                • Scale the logo to about {scale_percent}% of its original size to fit proportionally.
+                • The logo should fit within a zone that is {width_percent}% wide and {height_percent}% tall relative to the product image.
 
-                • Rotate the logo by approximately {rotation_degrees} degrees around its center.
+                • Scale the logo to about {scale_percent}% of its original size within the marking zone.
+
+                • Rotate the logo by exactly {rotation_degrees} degrees around its center.
 
                 • Apply a realistic {technique_prompt} effect (like embossing, screen print, or reflection) to make the logo feel physically embedded into the product surface.
 
                 • Maintain 100% opacity unless transparency is requested.
 
-                Ensure the final result looks natural and cohesive, accounting for lighting, surface texture, and material. Only return the final image — no text, code, or explanation.
+                Ensure the final result looks natural and cohesive, accounting for lighting, surface texture, and material. The logo positioning, scaling, and rotation should be precise and match the specified parameters exactly. Only return the final image — no text, code, or explanation.
                 """
 
             # Prepare the request payload
@@ -168,13 +189,13 @@ class AIService:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": "https://dev.bookbabes.club/1.png" #f"data:image/png;base64,{product_b64}"
+                                    "url": product_absolute_url
                                 }
                             },
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": "https://dev.bookbabes.club/2.png" #f"data:image/png;base64,{logo_b64}"
+                                    "url": logo_absolute_url
                                 }
                             },
                             {
@@ -248,6 +269,46 @@ class AIService:
             
         except Exception as e:
             logger.error(f"Error in piapi.ai generation: {e}")
+            
+        # Fall back to traditional image processing if AI fails
+        logger.info("Falling back to traditional image processing")
+        return await self._generate_traditional(
+            product_image_url, logo_image_url, marking_zone, 
+            technique, logo_scale, logo_rotation, logo_color
+        )
+    
+    async def _generate_traditional(
+        self,
+        product_image_url: str,
+        logo_image_url: str,
+        marking_zone: Tuple[float, float, float, float],
+        technique: str,
+        logo_scale: float,
+        logo_rotation: float,
+        logo_color: Optional[str]
+    ) -> Image.Image:
+        """Generate mockup using traditional image processing as fallback"""
+        try:
+            # Download images
+            product_image = await self.download_image(product_image_url)
+            logo_image = await self.download_image(logo_image_url)
+            
+            # Apply logo to product using traditional method
+            result_image = apply_logo_to_product(
+                product_image=product_image,
+                logo_image=logo_image,
+                position=marking_zone,
+                scale=logo_scale,
+                rotation=logo_rotation,
+                color_overlay=logo_color,
+                texture_type=technique
+            )
+            
+            return result_image
+            
+        except Exception as e:
+            logger.error(f"Error in traditional image processing: {e}")
+            raise
 
     def estimate_processing_time(self, use_ai: bool = True) -> int:
         """Estimate processing time in seconds"""
