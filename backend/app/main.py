@@ -19,7 +19,6 @@ from app.config.settings import settings
 from app.config.database import init_db
 from app.core.exceptions import CustomException
 from app.api.v1 import auth, users, mockups, products, credits, subscriptions, payments, admin, simulation_history
-from app.middleware.rate_limiting import rate_limit_middleware
 import os
 
 # Configure logging
@@ -202,10 +201,6 @@ if not settings.DEBUG:
     )
 
 
-# Rate limiting middleware
-@app.middleware("http")
-async def rate_limiting(request: Request, call_next):
-    return await rate_limit_middleware(request, call_next)
 
 
 # Request timing middleware

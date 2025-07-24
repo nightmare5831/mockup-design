@@ -32,8 +32,12 @@ class StorageService:
             logger.info("Using local storage")
     
     def _should_use_s3(self) -> bool:
-        """Force local storage for now"""
-        return False  # Always use local storage
+        """Determine if S3 should be used based on configuration"""
+        return all([
+            settings.AWS_ACCESS_KEY_ID,
+            settings.AWS_SECRET_ACCESS_KEY,
+            settings.AWS_S3_BUCKET
+        ])
     
     async def upload_file(
         self,
@@ -48,15 +52,32 @@ class StorageService:
             
             if self.use_s3:
                 # Upload to S3
-                self.s3_client.upload_fileobj(
-                    file.file,
-                    self.bucket_name,
-                    key,
-                    ExtraArgs={
-                        'ContentType': content_type or file.content_type or 'application/octet-stream',
-                        'ACL': 'public-read'
-                    }
-                )
+                # Try with ACL first, fallback without ACL if needed
+                try:
+                    self.s3_client.upload_fileobj(
+                        file.file,
+                        self.bucket_name,
+                        key,
+                        ExtraArgs={
+                            'ContentType': content_type or file.content_type or 'application/octet-stream',
+                            'ACL': 'public-read'
+                        }
+                    )
+                except ClientError as e:
+                    if 'AccessControlListNotSupported' in str(e):
+                        logger.warning("ACLs not supported, uploading without ACL (relying on bucket policy)")
+                        # Reset file pointer and try without ACL
+                        await file.seek(0)
+                        self.s3_client.upload_fileobj(
+                            file.file,
+                            self.bucket_name,
+                            key,
+                            ExtraArgs={
+                                'ContentType': content_type or file.content_type or 'application/octet-stream'
+                            }
+                        )
+                    else:
+                        raise
                 
                 # Return public URL
                 url = f"https://{self.bucket_name}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
@@ -88,13 +109,26 @@ class StorageService:
         try:
             if self.use_s3:
                 # Upload to S3
-                self.s3_client.put_object(
-                    Bucket=self.bucket_name,
-                    Key=key,
-                    Body=data,
-                    ContentType=content_type,
-                    ACL='public-read'
-                )
+                # Try with ACL first, fallback without ACL if needed
+                try:
+                    self.s3_client.put_object(
+                        Bucket=self.bucket_name,
+                        Key=key,
+                        Body=data,
+                        ContentType=content_type,
+                        ACL='public-read'
+                    )
+                except ClientError as e:
+                    if 'AccessControlListNotSupported' in str(e):
+                        logger.warning("ACLs not supported, uploading without ACL (relying on bucket policy)")
+                        self.s3_client.put_object(
+                            Bucket=self.bucket_name,
+                            Key=key,
+                            Body=data,
+                            ContentType=content_type
+                        )
+                    else:
+                        raise
                 
                 url = f"https://{self.bucket_name}.s3.{settings.AWS_REGION}.amazonaws.com/{key}"
                 logger.info(f"Data uploaded to S3: {url}")
@@ -206,12 +240,24 @@ class StorageService:
             if self.use_s3:
                 copy_source = {'Bucket': self.bucket_name, 'Key': source_key}
                 
-                self.s3_client.copy_object(
-                    CopySource=copy_source,
-                    Bucket=self.bucket_name,
-                    Key=dest_key,
-                    ACL='public-read'
-                )
+                # Try with ACL first, fallback without ACL if needed
+                try:
+                    self.s3_client.copy_object(
+                        CopySource=copy_source,
+                        Bucket=self.bucket_name,
+                        Key=dest_key,
+                        ACL='public-read'
+                    )
+                except ClientError as e:
+                    if 'AccessControlListNotSupported' in str(e):
+                        logger.warning("ACLs not supported, copying without ACL (relying on bucket policy)")
+                        self.s3_client.copy_object(
+                            CopySource=copy_source,
+                            Bucket=self.bucket_name,
+                            Key=dest_key
+                        )
+                    else:
+                        raise
                 
                 url = f"https://{self.bucket_name}.s3.{settings.AWS_REGION}.amazonaws.com/{dest_key}"
                 return url

@@ -20,6 +20,12 @@ const ProjectEditor = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  // Local state for pending images
+  const [pendingProductImage, setPendingProductImage] = useState<File | null>(null);
+  const [pendingLogoImage, setPendingLogoImage] = useState<File | null>(null);
+  const [localProductImageUrl, setLocalProductImageUrl] = useState<string | null>(null);
+  const [localLogoImageUrl, setLocalLogoImageUrl] = useState<string | null>(null);
+  
   const handleTechniqueChange = (technique: string) => {
     dispatch(updateProject({ marking_technique: technique }));
   };
@@ -69,15 +75,34 @@ const ProjectEditor = () => {
     }, 1000); // 1 second delay
   }, [currentProject, dispatch]);
   
-  // Cleanup timeout on unmount
+  // Cleanup timeout on unmount and cleanup object URLs
   useEffect(() => {
     dispatch(fetchMarkingTechniques());
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
       }
+      // Cleanup object URLs to prevent memory leaks
+      if (localProductImageUrl) {
+        URL.revokeObjectURL(localProductImageUrl);
+      }
+      if (localLogoImageUrl) {
+        URL.revokeObjectURL(localLogoImageUrl);
+      }
     };
   }, [dispatch]);
+  
+  // Cleanup object URLs when component unmounts or images change
+  useEffect(() => {
+    return () => {
+      if (localProductImageUrl && !pendingProductImage) {
+        URL.revokeObjectURL(localProductImageUrl);
+      }
+      if (localLogoImageUrl && !pendingLogoImage) {
+        URL.revokeObjectURL(localLogoImageUrl);
+      }
+    };
+  }, [localProductImageUrl, localLogoImageUrl, pendingProductImage, pendingLogoImage]);
 
   // Memoize initialTransform to prevent re-renders
   // Must be before early return to maintain hooks order
@@ -132,39 +157,30 @@ const ProjectEditor = () => {
       return;
     }
 
-    try {
-      // Upload the file
-      const response = await dispatch(uploadMockupImages({ 
-        mockupId: currentProject.id,
-        image: file, 
-        type 
-      })).unwrap();
-
-      // Update the project with the uploaded image URL
-      if (type === 'products') {
-        dispatch(updateProject({ 
-          productImage: response.image_url 
-        }));
-        toast({
-          title: "Product image uploaded",
-          description: "Your product image has been uploaded successfully.",
-        });
-      } else {
-        dispatch(updateProject({ 
-          logoImage: response.image_url 
-        }));
-        toast({
-          title: "Logo uploaded",
-          description: "Your logo has been uploaded successfully.",
-        });
-      }
-
-    } catch (error: any) {
-      console.error('Upload error:', error);
+    // Store file locally without uploading
+    const localUrl = URL.createObjectURL(file);
+    
+    if (type === 'products') {
+      setPendingProductImage(file);
+      setLocalProductImageUrl(localUrl);
+      // Update local display only
+      dispatch(updateProject({ 
+        product_image_url: localUrl 
+      }));
       toast({
-        title: "Upload failed",
-        description: error.message || `Failed to upload ${type} image.`,
-        variant: "destructive",
+        title: "Product image selected",
+        description: "Image will be uploaded when you generate the preview.",
+      });
+    } else {
+      setPendingLogoImage(file);
+      setLocalLogoImageUrl(localUrl);
+      // Update local display only
+      dispatch(updateProject({ 
+        logo_image_url: localUrl 
+      }));
+      toast({
+        title: "Logo selected",
+        description: "Logo will be uploaded when you generate the preview.",
       });
     }
   };
@@ -173,14 +189,66 @@ const ProjectEditor = () => {
     try {
       // Show loading toast
       toast({
-        title: " Preview",
+        title: "🚀 Starting Generation",
         description: (
           <div className="flex items-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Processing your mockup design...</span>
+            <span>Uploading images and processing...</span>
           </div>
         ),
         duration: 30000, // 30 seconds max duration
+      });
+      
+      // Upload pending images first
+      
+      // Upload product image if pending
+      if (pendingProductImage) {
+        try {
+          const productResponse = await dispatch(uploadMockupImages({ 
+            mockupId: currentProject.id,
+            image: pendingProductImage, 
+            type: 'products' 
+          })).unwrap();
+          // Update project with the uploaded URL
+          dispatch(updateProject({ 
+            product_image_url: productResponse.image_url 
+          }));
+          setPendingProductImage(null);
+          setLocalProductImageUrl(null);
+        } catch (error: any) {
+          throw new Error(`Failed to upload product image: ${error.message}`);
+        }
+      }
+      
+      // Upload logo image if pending
+      if (pendingLogoImage) {
+        try {
+          const logoResponse = await dispatch(uploadMockupImages({ 
+            mockupId: currentProject.id,
+            image: pendingLogoImage, 
+            type: 'logos' 
+          })).unwrap();
+          // Update project with the uploaded URL
+          dispatch(updateProject({ 
+            logo_image_url: logoResponse.image_url 
+          }));
+          setPendingLogoImage(null);
+          setLocalLogoImageUrl(null);
+        } catch (error: any) {
+          throw new Error(`Failed to upload logo: ${error.message}`);
+        }
+      }
+      
+      // Update toast to show generation progress
+      toast({
+        title: "🎨 Generating Preview",
+        description: (
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            <span>AI is creating your mockup...</span>
+          </div>
+        ),
+        duration: 30000,
       });
       
       // Regenerate the mockup with current settings
@@ -239,13 +307,13 @@ const ProjectEditor = () => {
       id: 1, 
       label: 'Upload Product', 
       icon: Upload, 
-      completed: !!currentProject.product_image_url 
+      completed: !!currentProject.product_image_url || !!pendingProductImage 
     },
     { 
       id: 2, 
       label: 'Add Logo & Position', 
       icon: Palette, 
-      completed: !!currentProject.logo_image_url 
+      completed: !!currentProject.logo_image_url || !!pendingLogoImage 
     },
     { 
       id: 3, 
@@ -367,7 +435,7 @@ const ProjectEditor = () => {
               variant="primary"
               onClick={handleGeneratePreview}
               className="w-full h-12 text-base font-medium relative overflow-hidden group"
-              disabled={!currentProject.marking_technique || !currentProject.product_image_url || loading}
+              disabled={!currentProject.marking_technique || (!currentProject.product_image_url && !pendingProductImage) || loading}
             >
               <motion.div
                 className="absolute inset-0 bg-gradient-to-r from-primary/20 to-primary/10"

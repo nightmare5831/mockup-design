@@ -96,13 +96,17 @@ const CustomImageEditor: React.FC<CustomImageEditorProps> = ({
         setLogoImg(img);
       };
       img.onerror = () => {
-        toast({
-          title: "Error", 
-          description: "Failed to load logo image",
-          variant: "destructive"
-        });
+        // Only show error for non-blob URLs (actual backend URLs)
+        if (!logoImage.startsWith('blob:')) {
+          toast({
+            title: "Error", 
+            description: "Failed to load logo image",
+            variant: "destructive"
+          });
+        }
       };
-      img.src = API_UPLOAD_URL + logoImage;
+      // Check if it's a blob URL or needs API prefix
+      img.src = logoImage.startsWith('blob:') ? logoImage : API_UPLOAD_URL + logoImage;
     }
   }, [logoImage]);
 
@@ -381,13 +385,17 @@ const CustomImageEditor: React.FC<CustomImageEditorProps> = ({
         setBackgroundImg(img);
       };
       img.onerror = () => {
-        toast({
-          title: "Error",
-          description: "Failed to load product image",
-          variant: "destructive"
-        });
+        // Only show error for non-blob URLs (actual backend URLs)
+        if (!backgroundImage.startsWith('blob:')) {
+          toast({
+            title: "Error",
+            description: "Failed to load product image",
+            variant: "destructive"
+          });
+        }
       };
-      img.src = API_UPLOAD_URL + backgroundImage;
+      // Check if it's a blob URL or needs API prefix
+      img.src = backgroundImage.startsWith('blob:') ? backgroundImage : API_UPLOAD_URL + backgroundImage;
     }
   }, [backgroundImage, API_UPLOAD_URL]);
 
