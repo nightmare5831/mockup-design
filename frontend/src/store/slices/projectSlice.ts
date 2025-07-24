@@ -150,9 +150,13 @@ export const projectSlice = createSlice({
       .addCase(uploadMockupImages.fulfilled, (state, action) => {
         state.loading = false;
         if (action.payload.type == "products") {
-          state.currentProject.product_image_url = action.payload.image_url
+          state.currentProject.product_image_url = action.payload.image_url;
+          // Clear temporary data after successful upload
+          state.currentProject.productImage = undefined;
         } else {
-          state.currentProject.logo_image_url = action.payload.image_url
+          state.currentProject.logo_image_url = action.payload.image_url;
+          // Clear temporary data after successful upload
+          state.currentProject.logoImage = undefined;
         }
       })
       .addCase(uploadMockupImages.rejected, (state, action) => {

@@ -149,25 +149,30 @@ class AIService:
             logger.info(f"Using logo image URL: {logo_url}")
             
             # Calculate position and transform values from marking zone and parameters
-            x_pos = int(marking_zone[0])  # Assuming base image size for calculation
-            y_pos = int(marking_zone[1])
+            # marking_zone contains relative values (0-1), convert to percentage for better AI understanding
+            x_pos_percent = int(marking_zone[0] * 100)  # Convert to percentage
+            y_pos_percent = int(marking_zone[1] * 100)  # Convert to percentage
+            width_percent = int(marking_zone[2] * 100)  # Zone width as percentage
+            height_percent = int(marking_zone[3] * 100)  # Zone height as percentage
             scale_percent = int(logo_scale * 100)
             rotation_degrees = int(logo_rotation)
             opacity_percent = 100 if logo_color != 'transparent' else 100
             # Create the prompt for logo overlay
             prompt_text = f"""Overlay the second image (a logo) onto the first image (a product photo) using the following visual guidance:
 
-                • Position the logo approximately {x_pos}px from the left and {y_pos}px from the top of the product image (top-left origin).
+                • Position the logo at approximately {x_pos_percent}% from the left and {y_pos_percent}% from the top of the product image (relative positioning).
 
-                • Scale the logo to about {scale_percent}% of its original size to fit proportionally.
+                • The logo should fit within a zone that is {width_percent}% wide and {height_percent}% tall relative to the product image.
 
-                • Rotate the logo by approximately {rotation_degrees} degrees around its center.
+                • Scale the logo to about {scale_percent}% of its original size within the marking zone.
+
+                • Rotate the logo by exactly {rotation_degrees} degrees around its center.
 
                 • Apply a realistic {technique_prompt} effect (like embossing, screen print, or reflection) to make the logo feel physically embedded into the product surface.
 
                 • Maintain 100% opacity unless transparency is requested.
 
-                Ensure the final result looks natural and cohesive, accounting for lighting, surface texture, and material. Only return the final image — no text, code, or explanation.
+                Ensure the final result looks natural and cohesive, accounting for lighting, surface texture, and material. The logo positioning, scaling, and rotation should be precise and match the specified parameters exactly. Only return the final image — no text, code, or explanation.
                 """
 
             # Prepare the request payload

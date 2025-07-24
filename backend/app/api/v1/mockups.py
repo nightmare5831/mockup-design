@@ -3,6 +3,7 @@ from typing import Optional, List
 from prisma.models import User
 from pathlib import Path
 import os
+import uuid
 from prisma.enums import MockupStatus, MarkingTechnique
 from app.config.database import get_db
 from app.config.settings import settings
@@ -26,7 +27,7 @@ from app.schemas.mockup import (
     MockupStats,
     MockupCreateRequest
 )
-from app.services.image_service import validate_image, upload_image
+from app.services.image_service import validate_image
 from app.services.storage_service import StorageService
 import uuid
 
@@ -123,7 +124,7 @@ async def upload_mockup_images(
     filename = f"{folder}/{uuid.uuid4()}_{image.filename}"
     
     try:
-        # Upload image to S3
+        # Upload image to storage
         url = await storage.upload_file(image, filename)
         
         # If mockup_id is provided, update the existing mockup
