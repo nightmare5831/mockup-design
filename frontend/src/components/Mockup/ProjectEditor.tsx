@@ -287,6 +287,11 @@ const ProjectEditor = () => {
   const handleDownloadPreview = () => {
     if (currentProject.result_image_url) {
       const imageUrl = API_UPLOAD_URL + currentProject.result_image_url;
+      
+      // Console log the full image URL being used
+      console.log('⬇️ DOWNLOADING IMAGE FROM:', imageUrl);
+      console.log('📂 RESULT_IMAGE_URL:', currentProject.result_image_url);
+      console.log('🌐 API_UPLOAD_URL:', API_UPLOAD_URL);
       fetch(imageUrl)
       .then(res => res.blob())
       .then(blob => {

@@ -187,6 +187,11 @@ export const projectSlice = createSlice({
         state.loading = false;
         if (state.currentProject) {
           const updatedProject = action.payload as Project;
+          
+          // Console log the new image URL from backend
+          console.log('🎨 NEW MOCKUP RESULT URL:', updatedProject.result_image_url);
+          console.log('📦 FULL BACKEND RESPONSE:', updatedProject);
+          
           state.currentProject = updatedProject;
           
           // Update in projects array
@@ -210,6 +215,10 @@ export const projectSlice = createSlice({
       .addCase(generateMockup.fulfilled, (state, action) => {
         state.loading = false;
         const mockupResponse = action.payload as MockupResponse;
+        
+        // Console log the new mockup creation result
+        console.log('✨ NEW MOCKUP CREATED - RESULT URL:', mockupResponse.result_image_url);
+        console.log('🆕 MOCKUP CREATION RESPONSE:', mockupResponse);
         
         if (state.currentProject) {
           state.currentProject = {
