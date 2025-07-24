@@ -3,10 +3,9 @@ import json
 from PIL import Image
 from typing import Optional, Tuple
 import io
-import os
 import logging
 from app.config.settings import settings
-from app.services.image_service import apply_logo_to_product, image_to_bytes
+from app.services.image_service import image_to_bytes
 from app.services.storage_service import StorageService
 
 logger = logging.getLogger(__name__)
@@ -32,37 +31,30 @@ class AIService:
             logger.error(f"Failed to initialize AI service: {e}")
             raise
     
-    async def download_image(self, url: str) -> Image.Image:
-        """Download image from URL"""
+    async def download_image_for_result(self, url: str) -> Image.Image:
+        """Download generated image from piapi.ai result URL"""
         try:
-            # Handle relative URLs by converting to absolute file paths
-            if url.startswith('/'):
-                # Convert relative URL to absolute file path
-                # Remove leading slash and handle uploads prefix
-                if url.startswith('/uploads/'):
-                    path = url[1:]  # Remove leading slash: /uploads/... -> uploads/...
-                else:
-                    path = url[1:]  # Remove leading slash
-                
-                # Convert to absolute path
-                absolute_path = os.path.abspath(path)
-                logger.info(f"Loading local image from: {absolute_path}")
-                return Image.open(absolute_path).convert('RGB')
-            else:
-                response = requests.get(url, timeout=30)
-                response.raise_for_status()
-                return Image.open(io.BytesIO(response.content)).convert('RGB')
+            logger.info(f"Downloading generated image from: {url}")
+            response = requests.get(url, timeout=30)
+            response.raise_for_status()
+            return Image.open(io.BytesIO(response.content)).convert('RGB')
         except Exception as e:
-            logger.error(f"Failed to download image from {url}: {e}")
+            logger.error(f"Failed to download generated image from {url}: {e}")
             raise
     
     def get_absolute_url(self, url: str) -> str:
         """Convert relative URL to absolute URL for API"""
         if url.startswith('/'):
-            # For local development, use localhost
+            # For local URLs, convert to absolute URL using BASE_URL
             base_url = getattr(settings, 'BASE_URL', 'http://localhost:5371')
             return f"{base_url}{url}"
-        return url
+        elif url.startswith('http'):
+            # Already absolute URL (S3 or other external service)
+            return url
+        else:
+            # Relative path without leading slash
+            base_url = getattr(settings, 'BASE_URL', 'http://localhost:5371')
+            return f"{base_url}/{url}"
     
     def get_technique_prompt(self, technique: str) -> str:
         """Get prompt enhancement based on marking technique with fitting emphasis"""
@@ -99,17 +91,21 @@ class AIService:
         logo_scale: float = 1.0,
         logo_rotation: float = 0.0,
         logo_color: Optional[str] = None,
-        use_ai: bool = True,
         user_id: Optional[str] = None
     ) -> str:
         """Generate mockup with logo applied to product using piapi.ai"""
         try:
-            if use_ai and self.api_key:
-                # Use AI-powered generation via piapi.ai
-                result_image = await self._generate_with_piapi(
-                    product_image_url, logo_image_url, marking_zone, 
-                    marking_technique, logo_scale, logo_rotation, logo_color
-                )
+            if not self.api_key:
+                raise Exception("PIAPI_API_KEY not configured")
+            
+            # Generate using piapi.ai
+            result_image = await self._generate_with_piapi(
+                product_image_url, logo_image_url, marking_zone, 
+                marking_technique, logo_scale, logo_rotation, logo_color
+            )
+            
+            if result_image is None:
+                raise Exception("Failed to generate mockup with piapi.ai")
             
             # Upload result to storage
             result_bytes = image_to_bytes(result_image, 'PNG')
@@ -145,12 +141,12 @@ class AIService:
             # Get technique-specific prompt
             technique_prompt = self.get_technique_prompt(technique)
             
-            # Convert relative URLs to absolute URLs
-            product_absolute_url = self.get_absolute_url(product_image_url)
-            logo_absolute_url = self.get_absolute_url(logo_image_url)
+            # Convert relative URLs to absolute URLs for piapi.ai
+            product_url = self.get_absolute_url(product_image_url)
+            logo_url = self.get_absolute_url(logo_image_url)
             
-            logger.info(f"Using product image URL: {product_absolute_url}")
-            logger.info(f"Using logo image URL: {logo_absolute_url}")
+            logger.info(f"Using product image URL: {product_url}")
+            logger.info(f"Using logo image URL: {logo_url}")
             
             # Calculate position and transform values from marking zone and parameters
             # marking_zone contains relative values (0-1), convert to percentage for better AI understanding
@@ -189,13 +185,13 @@ class AIService:
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": product_absolute_url
+                                    "url": product_url
                                 }
                             },
                             {
                                 "type": "image_url",
                                 "image_url": {
-                                    "url": logo_absolute_url
+                                    "url": logo_url
                                 }
                             },
                             {
@@ -258,64 +254,23 @@ class AIService:
                 
                 try:
                     # Download the generated image from piapi.ai
-                    generated_image = await self.download_image(image_url)
+                    generated_image = await self.download_image_for_result(image_url)
                     logger.info("Successfully downloaded generated image from piapi.ai")
                     return generated_image
                 except Exception as e:
                     logger.error(f"Failed to download generated image: {e}")
-                    # Fall back to traditional method if download fails
+                    return None
             else:
-                logger.warning("No image URL found in piapi.ai response, falling back to traditional method")
+                logger.warning("No image URL found in piapi.ai response")
+                return None
             
         except Exception as e:
             logger.error(f"Error in piapi.ai generation: {e}")
-            
-        # Fall back to traditional image processing if AI fails
-        logger.info("Falling back to traditional image processing")
-        return await self._generate_traditional(
-            product_image_url, logo_image_url, marking_zone, 
-            technique, logo_scale, logo_rotation, logo_color
-        )
-    
-    async def _generate_traditional(
-        self,
-        product_image_url: str,
-        logo_image_url: str,
-        marking_zone: Tuple[float, float, float, float],
-        technique: str,
-        logo_scale: float,
-        logo_rotation: float,
-        logo_color: Optional[str]
-    ) -> Image.Image:
-        """Generate mockup using traditional image processing as fallback"""
-        try:
-            # Download images
-            product_image = await self.download_image(product_image_url)
-            logo_image = await self.download_image(logo_image_url)
-            
-            # Apply logo to product using traditional method
-            result_image = apply_logo_to_product(
-                product_image=product_image,
-                logo_image=logo_image,
-                position=marking_zone,
-                scale=logo_scale,
-                rotation=logo_rotation,
-                color_overlay=logo_color,
-                texture_type=technique
-            )
-            
-            return result_image
-            
-        except Exception as e:
-            logger.error(f"Error in traditional image processing: {e}")
             raise
 
-    def estimate_processing_time(self, use_ai: bool = True) -> int:
+    def estimate_processing_time(self) -> int:
         """Estimate processing time in seconds"""
-        if use_ai and self.api_key:
-            return 30  # API processing time
-        else:
-            return 5  # Traditional image processing is much faster
+        return 30  # piapi.ai processing time
     
     async def cleanup_models(self):
         """Clean up resources (no local models to clean)"""

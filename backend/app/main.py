@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import time
@@ -19,7 +19,6 @@ from app.config.settings import settings
 from app.config.database import init_db
 from app.core.exceptions import CustomException
 from app.api.v1 import auth, users, mockups, products, credits, subscriptions, payments, admin, simulation_history
-from app.middleware.rate_limiting import rate_limit_middleware
 import os
 
 # Configure logging
@@ -185,13 +184,6 @@ else:
     # Create uploads directory if it doesn't exist
     os.makedirs("uploads", exist_ok=True)
     app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-
-# Mount frontend static files
-if os.path.exists("static/dist"):
-    app.mount("/static", StaticFiles(directory="static/dist"), name="static")
-    # Also mount assets directory directly for frontend asset requests
-    if os.path.exists("static/dist/assets"):
-        app.mount("/assets", StaticFiles(directory="static/dist/assets"), name="assets")
     
 # Middleware
 app.add_middleware(
@@ -209,10 +201,6 @@ if not settings.DEBUG:
     )
 
 
-# Rate limiting middleware
-@app.middleware("http")
-async def rate_limiting(request: Request, call_next):
-    return await rate_limit_middleware(request, call_next)
 
 
 # Request timing middleware
@@ -266,53 +254,11 @@ app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(simulation_history.router, prefix="/api/v1/simulation-history", tags=["Simulation History"])
 
 
-# Serve frontend index.html for non-API routes
-@app.get("/{path:path}")
-async def serve_frontend(path: str):
-    # Exclude API routes, docs, uploads, static files, and asset files
-    if (path.startswith("api/") or 
-        path.startswith("docs") or 
-        path.startswith("redoc") or 
-        path.startswith("openapi.json") or 
-        path.startswith("health") or 
-        path.startswith("uploads/") or 
-        path.startswith("static/") or
-        path.endswith(".js") or
-        path.endswith(".css") or
-        path.endswith(".ico") or
-        path.endswith(".png") or
-        path.endswith(".jpg") or
-        path.endswith(".jpeg") or
-        path.endswith(".svg") or
-        path.endswith(".woff") or
-        path.endswith(".woff2") or
-        path.endswith(".ttf") or
-        path.endswith(".eot") or
-        path.endswith(".map")):
-        return JSONResponse(
-            status_code=404,
-            content={"detail": "Not found"}
-        )
-    
-    # Serve frontend index.html for all other routes
-    if os.path.exists("static/dist/index.html"):
-        return FileResponse("static/dist/index.html")
-    else:
-        return JSONResponse(
-            status_code=404,
-            content={"detail": "Frontend not found"}
-        )
-
-
 # Root endpoint
 @app.get("/")
 async def root():               
-    # If frontend exists, serve it; otherwise show API info
-    if os.path.exists("static/dist/index.html"):
-        return FileResponse("static/dist/index.html")
-    else:
-        return {
-            "message": "Welcome to AI Mockup Platform API",
-            "version": settings.APP_VERSION,
-            "docs": "/docs" if settings.DEBUG else None
-        }
+    return {
+        "message": "Welcome to AI Mockup Platform API",
+        "version": settings.APP_VERSION,
+        "docs": "/docs" if settings.DEBUG else None
+    }

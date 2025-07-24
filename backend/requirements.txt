@@ -16,9 +16,8 @@ python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
 python-multipart==0.0.6
 
-# Background tasks
+# Background tasks (removed Redis dependency)
 celery==5.3.4
-redis==5.0.1
 
 numpy==1.26.2  # Changed from 1.24.3 for Python 3.11 compatibility
 

@@ -156,12 +156,12 @@ async def upload_mockup_images(
                     except Exception as e:
                         logging.warning(f"Failed to delete existing image {existing_filename}: {e}")
             
-            # Update mockup with new image URL
+            # Update mockup with new image URL (use returned URL from storage service)
             update_data = {}
             if type == "products":
-                update_data["product_image_url"] = f'/uploads/{filename}'
+                update_data["product_image_url"] = url
             elif type == "logos":
-                update_data["logo_image_url"] = f'/uploads/{filename}'
+                update_data["logo_image_url"] = url
             
             if update_data:
                 await db.mockup.update(

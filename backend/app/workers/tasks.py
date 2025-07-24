@@ -73,11 +73,11 @@ def generate_mockup_task(self, mockup_id: str):
                 mockup.marking_zone_w,
                 mockup.marking_zone_h
             ),
-            technique='SERIGRAFIA', #mockup.marking_technique.value,
+            marking_technique=mockup.marking_technique,
             logo_scale=mockup.logo_scale,
             logo_rotation=mockup.logo_rotation,
             logo_color=mockup.logo_color,
-            use_ai=True
+            user_id=mockup.user_id
         )
         
         # if current_task:
