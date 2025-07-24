@@ -4,6 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { regenerateMockup, updateMockup, updateProject, uploadMockupImages, fetchMarkingTechniques } from '@/store/slices/projectSlice';
+import { store } from '@/store/store';
 import { Settings, Sparkles, Image, Loader2, Upload, Palette, CheckCircle2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { motion } from 'framer-motion';
@@ -20,7 +21,7 @@ const ProjectEditor = () => {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  // Local state for pending images
+ // Local state for pending images
   const [pendingProductImage, setPendingProductImage] = useState<File | null>(null);
   const [pendingLogoImage, setPendingLogoImage] = useState<File | null>(null);
   const [localProductImageUrl, setLocalProductImageUrl] = useState<string | null>(null);
@@ -31,48 +32,16 @@ const ProjectEditor = () => {
   };
 
   const handleTransformChange = useCallback((transform: any) => {
-    // Clear existing timeout
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current);
+    // Only update local state, don't save to backend
+    if (currentProject) {
+      dispatch(updateProject({
+        logo_scale: transform.scale,
+        logo_rotation: transform.rotation,
+        marking_zone_x: transform.x,
+        marking_zone_y: transform.y,
+        logo_opacity: transform.opacity,
+      }));
     }
-    
-    // Set new timeout to save after 1 second of inactivity
-    saveTimeoutRef.current = setTimeout(async () => {
-      if (currentProject) {
-        try {
-          // Use product-relative coordinates (x, y are already converted)
-          await dispatch(updateMockup({
-            id: currentProject.id,
-            data: {
-              logo_scale: transform.scale,
-              logo_rotation: transform.rotation,
-              marking_zone_x: transform.x,
-              marking_zone_y: transform.y,
-              marking_zone_w: currentProject.marking_zone_w,
-              marking_zone_h: currentProject.marking_zone_h,
-              marking_technique: currentProject.marking_technique,
-              logo_opacity: transform.opacity,
-            }
-          })).unwrap();
-          
-          // Update local project state
-          dispatch(updateProject({
-            logo_scale: transform.scale,
-            logo_rotation: transform.rotation,
-            marking_zone_x: transform.x,
-            marking_zone_y: transform.y,
-            logo_opacity: transform.opacity,
-          }));
-        } catch (error: any) {
-          console.error('Failed to save logo transform:', error);
-          toast({
-            title: "Save failed",
-            description: error.message || "Failed to save logo changes.",
-            variant: "destructive",
-          });
-        }
-      }
-    }, 1000); // 1 second delay
   }, [currentProject, dispatch]);
   
   // Cleanup timeout on unmount and cleanup object URLs
@@ -157,7 +126,7 @@ const ProjectEditor = () => {
       return;
     }
 
-    // Store file locally without uploading
+// Store file locally without uploading
     const localUrl = URL.createObjectURL(file);
     
     if (type === 'products') {
@@ -199,7 +168,7 @@ const ProjectEditor = () => {
         duration: 30000, // 30 seconds max duration
       });
       
-      // Upload pending images first
+ // Upload pending images first
       
       // Upload product image if pending
       if (pendingProductImage) {
@@ -379,8 +348,8 @@ const ProjectEditor = () => {
           <Card>
             <CardContent>
               <CustomImageEditor
-                backgroundImage={currentProject.product_image_url}
-                logoImage={currentProject.logo_image_url}
+                backgroundImage={currentProject.productImage || currentProject.product_image_url}
+                logoImage={currentProject.logoImage || currentProject.logo_image_url}
                 resultImage={currentProject.result_image_url}
                 onBackgroundUpload={(file) => handleImageUpload(file, 'products')}
                 onLogoUpload={(file) => handleImageUpload(file, 'logos')}
@@ -423,9 +392,9 @@ const ProjectEditor = () => {
           </Card>
 
           {/* Before/After Preview */}
-          {(currentProject.product_image_url || currentProject.result_image_url) && (
+          {((currentProject.productImage || currentProject.product_image_url) || currentProject.result_image_url) && (
             <BeforeAfterPreview
-              beforeImage={currentProject.product_image_url}
+              beforeImage={currentProject.productImage || currentProject.product_image_url}
               afterImage={currentProject.result_image_url}
             />
           )}
