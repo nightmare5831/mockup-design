@@ -67,6 +67,14 @@ const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
                 src={API_UPLOAD_URL + previewImage}
                 alt="AI Generated Mockup"
                 className="w-full h-full object-contain"
+                onLoad={() => {
+                  // Console log when image loads successfully
+                  console.log('🖼️ PREVIEW IMAGE LOADED:', API_UPLOAD_URL + previewImage);
+                  console.log('📄 PREVIEW IMAGE PATH:', previewImage);
+                }}
+                onError={() => {
+                  console.error('❌ FAILED TO LOAD PREVIEW IMAGE:', API_UPLOAD_URL + previewImage);
+                }}
               />
             </motion.div>
           ) : (

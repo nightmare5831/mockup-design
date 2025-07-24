@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import time
@@ -178,12 +178,10 @@ app = FastAPI(
 # Add CORS middleware for static files
 app.add_middleware(StaticFilesCORSMiddleware)
 
-if os.path.exists("uploads"):
-    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-else:
-    # Create uploads directory if it doesn't exist
-    os.makedirs("uploads", exist_ok=True)
-    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+# Ensure JS files are served with correct MIME type
+import mimetypes
+mimetypes.add_type('application/javascript', '.js')
+mimetypes.add_type('text/css', '.css')
     
 # Middleware
 app.add_middleware(
@@ -253,12 +251,88 @@ app.include_router(payments.router, prefix="/api/v1", tags=["Payments"])
 app.include_router(admin.router, prefix="/api/v1/admin", tags=["Admin"])
 app.include_router(simulation_history.router, prefix="/api/v1/simulation-history", tags=["Simulation History"])
 
+# Mount static files AFTER API routes but BEFORE SPA routes
+if os.path.exists("uploads"):
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+else:
+    # Create uploads directory if it doesn't exist
+    os.makedirs("uploads", exist_ok=True)
+    app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-# Root endpoint
+# Mount frontend static files
+if os.path.exists("static/dist"):
+    # Mount the assets directory at /assets for the HTML references
+    app.mount("/assets", StaticFiles(directory="static/dist/assets"), name="assets")
+    # Mount other static files (favicon, robots.txt, etc.)
+    app.mount("/static", StaticFiles(directory="static/dist"), name="static")
+
+# Serve common static files from root
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon"""
+    if os.path.exists("static/dist/favicon.ico"):
+        return FileResponse("static/dist/favicon.ico")
+    return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+@app.get("/robots.txt")
+async def robots():
+    """Serve robots.txt"""
+    if os.path.exists("static/dist/robots.txt"):
+        return FileResponse("static/dist/robots.txt")
+    return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+# Serve specific asset files that might be requested directly from root
+@app.get("/index-rDlrJB7G.js")
+async def serve_main_js():
+    """Serve main JS file with correct MIME type"""
+    if os.path.exists("static/dist/assets/index-rDlrJB7G.js"):
+        return FileResponse("static/dist/assets/index-rDlrJB7G.js", media_type="application/javascript")
+    return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+@app.get("/index-BvXd7jmX.css")
+async def serve_main_css():
+    """Serve main CSS file with correct MIME type"""
+    if os.path.exists("static/dist/assets/index-BvXd7jmX.css"):
+        return FileResponse("static/dist/assets/index-BvXd7jmX.css", media_type="text/css")
+    return JSONResponse(status_code=404, content={"detail": "Not found"})
+
+# Serve React SPA
 @app.get("/")
-async def root():               
-    return {
-        "message": "Welcome to AI Mockup Platform API",
-        "version": settings.APP_VERSION,
-        "docs": "/docs" if settings.DEBUG else None
-    }
+async def serve_spa():
+    """Serve the React SPA index.html"""
+    if os.path.exists("static/dist/index.html"):
+        return FileResponse("static/dist/index.html")
+    else:
+        return {
+            "message": "Welcome to AI Mockup Platform API",
+            "version": settings.APP_VERSION,
+            "docs": "/docs" if settings.DEBUG else None
+        }
+
+# Catch-all route for SPA routing (must be last)
+@app.get("/{path:path}")
+async def serve_spa_routes(path: str):
+    """Serve React SPA for all non-API routes"""
+    # Don't serve SPA for API routes, docs, health, etc.
+    if (path.startswith("api/") or 
+        path.startswith("docs") or 
+        path.startswith("redoc") or 
+        path.startswith("health") or
+        path.startswith("uploads/") or
+        path.startswith("static/") or
+        path.startswith("assets/") or
+        path in ["favicon.ico", "robots.txt", "index-rDlrJB7G.js", "index-BvXd7jmX.css"]):
+        # Let these routes be handled by their respective handlers
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Not found"}
+        )
+    
+    # Serve index.html for all other routes (SPA routing)
+    if os.path.exists("static/dist/index.html"):
+        return FileResponse("static/dist/index.html")
+    else:
+        return JSONResponse(
+            status_code=404,
+            content={"detail": "Frontend not found"}
+        )
