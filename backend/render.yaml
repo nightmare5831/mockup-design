@@ -2,7 +2,7 @@ services:
   - type: web
     name: ai-mockup-backend
     env: python
-    buildCommand: pip install -r requirements.txt && prisma generate && prisma py fetch --force
+    buildCommand: pip install -r requirements.txt && prisma generate && prisma py fetch
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
@@ -24,8 +24,6 @@ services:
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
-        sync: false
-      - key: HUGGINGFACE_TOKEN
         sync: false
       - key: PIAPI_API_KEY
         sync: false
