@@ -1,29 +1,35 @@
 services:
   - type: web
-    name: fastleopard-backend
+    name: ai-mockup-backend
     env: python
-    buildCommand: ./build.sh
-    startCommand: ./start.sh
+    buildCommand: pip install -r requirements.txt && prisma generate && prisma py fetch
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
         sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
       - key: SECRET_KEY
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: STRIPE_PUBLISHABLE_KEY
         sync: false
       - key: STRIPE_SECRET_KEY
         sync: false
       - key: STRIPE_WEBHOOK_SECRET
         sync: false
-      - key: EMAIL_HOST
+      - key: PIAPI_API_KEY
         sync: false
-      - key: EMAIL_PORT
-        sync: false
-      - key: EMAIL_USER
+      - key: EMAIL_ADDRESS
         sync: false
       - key: EMAIL_PASSWORD
-        sync: false
-      - key: REDIS_URL
-        sync: false
-      - key: OPENAI_API_KEY
         sync: false
       - key: AWS_ACCESS_KEY_ID
         sync: false
@@ -31,9 +37,9 @@ services:
         sync: false
       - key: AWS_S3_BUCKET
         sync: false
-      - key: STABILITY_API_KEY
+      - key: AWS_REGION
         sync: false
     disk:
-      name: fastleopard-uploads
+      name: ai-mockup-uploads
       mountPath: /opt/render/project/src/uploads
       sizeGB: 10

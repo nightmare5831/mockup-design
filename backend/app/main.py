@@ -281,20 +281,6 @@ async def robots():
         return FileResponse("static/dist/robots.txt")
     return JSONResponse(status_code=404, content={"detail": "Not found"})
 
-# Serve specific asset files that might be requested directly from root
-@app.get("/index-rDlrJB7G.js")
-async def serve_main_js():
-    """Serve main JS file with correct MIME type"""
-    if os.path.exists("static/dist/assets/index-rDlrJB7G.js"):
-        return FileResponse("static/dist/assets/index-rDlrJB7G.js", media_type="application/javascript")
-    return JSONResponse(status_code=404, content={"detail": "Not found"})
-
-@app.get("/index-BvXd7jmX.css")
-async def serve_main_css():
-    """Serve main CSS file with correct MIME type"""
-    if os.path.exists("static/dist/assets/index-BvXd7jmX.css"):
-        return FileResponse("static/dist/assets/index-BvXd7jmX.css", media_type="text/css")
-    return JSONResponse(status_code=404, content={"detail": "Not found"})
 
 # Serve React SPA
 @app.get("/")
@@ -321,7 +307,7 @@ async def serve_spa_routes(path: str):
         path.startswith("uploads/") or
         path.startswith("static/") or
         path.startswith("assets/") or
-        path in ["favicon.ico", "robots.txt", "index-rDlrJB7G.js", "index-BvXd7jmX.css"]):
+        path in ["favicon.ico", "robots.txt"]):
         # Let these routes be handled by their respective handlers
         return JSONResponse(
             status_code=404,

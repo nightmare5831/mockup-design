@@ -13,6 +13,7 @@ logo-placement-app
 build/
 develop-eggs/
 dist/
+!static/dist/
 downloads/
 eggs/
 .eggs/
