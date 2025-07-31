@@ -4,6 +4,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
 import { Eye, EyeOff, ArrowLeftRight } from 'lucide-react';
+import { getImageUrl } from '@/utils/imageUrl';
 
 interface BeforeAfterPreviewProps {
   beforeImage?: string;
@@ -19,13 +20,6 @@ const BeforeAfterPreview: React.FC<BeforeAfterPreviewProps> = ({
   const [sliderPosition, setSliderPosition] = useState(50);
   const [viewMode, setViewMode] = useState<'slider' | 'toggle'>('slider');
   const [showAfter, setShowAfter] = useState(false);
-  
-  const API_UPLOAD_URL = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:5371';
-  
-  const getImageUrl = (imagePath?: string) => {
-    if (!imagePath) return '';
-    return imagePath.startsWith('http') ? imagePath : API_UPLOAD_URL + imagePath;
-  };
 
   if (!beforeImage || !afterImage) {
     return (

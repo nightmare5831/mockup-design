@@ -63,7 +63,12 @@ export class MockupsAPI extends BaseAPI {
     });
     if (status) params.append('status', status);
 
-    const response = await this.client.get(`/mockups?${params}`);
+    const url = `/mockups?${params}`;
+    console.log('Making request to:', url);
+    console.log('Base URL:', this.client.defaults.baseURL);
+    console.log('Has token:', !!this.getToken());
+
+    const response = await this.client.get(url);
     return response.data;
   }
   

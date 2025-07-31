@@ -11,8 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Download, Edit, Sparkles, CheckCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
-
-const API_UPLOAD_URL = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:5371';
+import { getImageUrl } from '@/utils/imageUrl';
 interface AIPreviewModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -64,16 +63,16 @@ const AIPreviewModal: React.FC<AIPreviewModalProps> = ({
               className="aspect-video bg-gray-100 rounded-lg overflow-hidden shadow-lg"
             >
               <img
-                src={API_UPLOAD_URL + previewImage}
+                src={getImageUrl(previewImage)}
                 alt="AI Generated Mockup"
                 className="w-full h-full object-contain"
                 onLoad={() => {
                   // Console log when image loads successfully
-                  console.log('🖼️ PREVIEW IMAGE LOADED:', API_UPLOAD_URL + previewImage);
+                  console.log('🖼️ PREVIEW IMAGE LOADED:', getImageUrl(previewImage));
                   console.log('📄 PREVIEW IMAGE PATH:', previewImage);
                 }}
                 onError={() => {
-                  console.error('❌ FAILED TO LOAD PREVIEW IMAGE:', API_UPLOAD_URL + previewImage);
+                  console.error('❌ FAILED TO LOAD PREVIEW IMAGE:', getImageUrl(previewImage));
                 }}
               />
             </motion.div>

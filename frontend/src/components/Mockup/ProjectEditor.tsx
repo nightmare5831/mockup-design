@@ -12,6 +12,7 @@ import CustomImageEditor from '../ImageEditor/CustomImageEditor';
 import AIPreviewModal from './AIPreviewModal';
 import BeforeAfterPreview from './BeforeAfterPreview';
 import { toast } from '@/components/ui/use-toast';
+import { getImageUrl } from '@/utils/imageUrl';
 
 
 const ProjectEditor = () => {
@@ -255,12 +256,12 @@ const ProjectEditor = () => {
 
   const handleDownloadPreview = () => {
     if (currentProject.result_image_url) {
-      const imageUrl = API_UPLOAD_URL + currentProject.result_image_url;
+      const imageUrl = getImageUrl(currentProject.result_image_url);
       
       // Console log the full image URL being used
       console.log('⬇️ DOWNLOADING IMAGE FROM:', imageUrl);
       console.log('📂 RESULT_IMAGE_URL:', currentProject.result_image_url);
-      console.log('🌐 API_UPLOAD_URL:', API_UPLOAD_URL);
+      
       fetch(imageUrl)
       .then(res => res.blob())
       .then(blob => {
@@ -272,6 +273,14 @@ const ProjectEditor = () => {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
+      })
+      .catch(err => {
+        console.error('Failed to download image:', err);
+        toast({
+          title: "Download failed",
+          description: "Failed to download the mockup image.",
+          variant: "destructive",
+        });
       });
     }
   };
