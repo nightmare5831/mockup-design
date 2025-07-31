@@ -12,8 +12,8 @@ import { Folder, Plus, Trash2, Edit, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
 import NewMockupModal from "@/components/Mockup/NewMockupModal";
 import { toast } from '@/components/ui/use-toast';
-
-const API_UPLOAD_URL = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:5371';
+import { getImageUrl } from '@/utils/imageUrl';
+import { mockupsApi } from '@/service/api';
 
 const Projects = () => {
   const [showNewMockupModal, setShowNewMockupModal] = useState(false);
@@ -44,10 +44,38 @@ const Projects = () => {
   };
 
   useEffect(() => {
+    const token = localStorage.getItem('access_token');
+    console.log('Auth token present:', !!token);
+    
+    if (token) {
+      mockupsApi.setToken(token);
+    }
+    
     dispatch(fetchUserMockups({
       page: 1,
       per_page: 20
-    }))
+    })).unwrap()
+      .then((data) => {
+        console.log('Mockups fetched successfully:', data);
+      })
+      .catch((error) => {
+        console.error('Failed to fetch mockups:', error);
+        
+        let errorMessage = "Please check your connection and try again.";
+        if (error.includes('Network Error') || error.includes('ERR_NETWORK')) {
+          errorMessage = "Unable to connect to the server. Please ensure the backend is running.";
+        } else if (error.includes('401') || error.includes('Unauthorized')) {
+          errorMessage = "Authentication failed. Please log in again.";
+        } else if (error.includes('500')) {
+          errorMessage = "Server error. Please try again later.";
+        }
+        
+        toast({
+          title: "Failed to load projects",
+          description: error || errorMessage,
+          variant: "destructive"
+        });
+      });
   }, [])
   useEffect(() => {
     if (newFlag && !showNewMockupModal) {
@@ -98,13 +126,13 @@ const Projects = () => {
                         <div className="aspect-video bg-gray-100 rounded-lg overflow-hidden mb-3">
                           {project.result_image_url ? (
                             <img
-                              src={API_UPLOAD_URL+project.result_image_url}
+                              src={getImageUrl(project.result_image_url)}
                               alt={project.name}
                               className="w-full h-full object-contain"
                             />
                           ) : project.product_image_url ? (
                             <img
-                              src={API_UPLOAD_URL+project.product_image_url}
+                              src={getImageUrl(project.product_image_url)}
                               alt={project.name}
                               className="w-full h-full object-contain"
                             />

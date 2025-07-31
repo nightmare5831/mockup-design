@@ -100,9 +100,12 @@ export const fetchUserMockups = createAsyncThunk(
   'project/fetchUserMockups',
   async (params: { page?: number; per_page?: number; status?: MockupStatus } = {}, { rejectWithValue }) => {
     try {
+      console.log('Fetching mockups with params:', params);
       const response = await mockupsApi.getMockups(params.page, params.per_page, params.status);
+      console.log('Mockups API response:', response);
       return response.mockups;
     } catch (error: any) {
+      console.error('Error fetching mockups:', error);
       return rejectWithValue(error.response?.data?.message || error.message || 'Failed to fetch mockups');
     }
   }

@@ -15,6 +15,7 @@ import {
   Eye
 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
+import { getImageUrl } from '@/utils/imageUrl';
 
 interface LogoTransform {
   x: number;
@@ -85,7 +86,6 @@ const CustomImageEditor: React.FC<CustomImageEditorProps> = ({
 
 
   // Load background image - moved after function declarations
-  const API_UPLOAD_URL = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:5371';
 
   // Load logo image
   useEffect(() => {
@@ -105,8 +105,8 @@ const CustomImageEditor: React.FC<CustomImageEditorProps> = ({
           });
         }
       };
-      // Check if it's a blob URL or needs API prefix
-      img.src = logoImage.startsWith('blob:') ? logoImage : API_UPLOAD_URL + logoImage;
+      // Use the utility function to handle URL construction
+      img.src = getImageUrl(logoImage);
     }
   }, [logoImage]);
 
@@ -394,10 +394,10 @@ const CustomImageEditor: React.FC<CustomImageEditorProps> = ({
           });
         }
       };
-      // Check if it's a blob URL or needs API prefix
-      img.src = backgroundImage.startsWith('blob:') ? backgroundImage : API_UPLOAD_URL + backgroundImage;
+      // Use the utility function to handle URL construction
+      img.src = getImageUrl(backgroundImage);
     }
-  }, [backgroundImage, API_UPLOAD_URL]);
+  }, [backgroundImage]);
 
   // Convert initial coordinates when background image loads
   useEffect(() => {
